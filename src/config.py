@@ -14,10 +14,10 @@ app_config = {
 # }
 
 microsd_config = {
-    'miso':2,
-    'mosi':15,
-    'ss':13,
-    'sck':14,
+    'miso':8,
+    'mosi':9,
+    'ss':21,
+    'sck':7,
 }
 
 wifi_config = {
