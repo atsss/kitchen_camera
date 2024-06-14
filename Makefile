@@ -1,4 +1,4 @@
-PYTHON_FILE=./src/main.py
+PYTHON_FILE=./src/*
 BIN_FILENAME=./firmware/camera.bin
 UPLOAD_PORT?=/dev/tty.usbmodem1234561
 SERIAL_PORT?=/dev/tty.usbmodem2101
