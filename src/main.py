@@ -1,6 +1,6 @@
 import uos
 import machine
-
+import gc
 import ntptime
 import time
 import camera
@@ -9,7 +9,7 @@ from slack import Slack
 
 slack_client = Slack()
 
-if  app_config['mode'] == 'MQTT':
+if app_config['mode'] == 'MQTT':
     from umqtt.simple2 import MQTTClient
 
 try:
@@ -49,6 +49,9 @@ error_counter = 0
 loop = True
 while loop:
     try:
+        print("Initial free memory:", gc.mem_free())
+        print("Initial allocated memory:", gc.mem_alloc())
+
         # prepare for photo
         led.value(1)
         led.value(0)
@@ -59,7 +62,9 @@ while loop:
         timestamp = rtc.datetime()
         time_str = '%4d%02d%02d%02d%02d%02d' %(timestamp[0], timestamp[1], timestamp[2], timestamp[4], timestamp[5], timestamp[6])
 
-        slack_client.send_message(f'Took photo {time_str}')
+        print(f'Took photo {time_str}: {buf[:20]}')
+        print("After allocation free memory:", gc.mem_free())
+        print("After allocation allocated memory:", gc.mem_alloc())
 
         if app_config['mode'] == 'microSD':
             f = open('sd/'+time_str+'.jpg', 'w')
@@ -69,7 +74,12 @@ while loop:
         elif  app_config['mode'] == 'MQTT':
             c.publish(mqtt_config['topic'], buf)
 
-        slack_client.send_message(f'Saved photo {time_str}')
+        print(f'Saved photo {time_str}: {buf[:20]}')
+
+        del buf
+        gc.collect()
+        print("After gc.collect() free memory:", gc.mem_free())
+        print("After gc.collect() allocated memory:", gc.mem_alloc())
 
         # sleep
         time.sleep_ms(app_config['sleep-ms'])
