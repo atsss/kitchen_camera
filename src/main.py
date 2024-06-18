@@ -6,11 +6,10 @@ import time
 import camera
 from config import *
 from slack import Slack
+from mqtt import Mqtt
 
 slack_client = Slack()
-
-if app_config['mode'] == 'MQTT':
-    from umqtt.simple2 import MQTTClient
+mqtt_client = Mqtt()
 
 try:
     # camera init
@@ -32,9 +31,8 @@ try:
                             cs=machine.Pin(microsd_config['ss']))
         uos.mount(sd, '/sd')
         #uos.listdir('/')
-    elif  app_config['mode'] == 'MQTT':
-        c = MQTTClient(mqtt_config['client_id'], mqtt_config['server'])
-        c.connect()
+    elif app_config['mode'] == 'MQTT':
+        mqtt_client.start()
 
     # ntp sync for date
     ntptime.settime()
@@ -72,7 +70,7 @@ while loop:
             time.sleep_ms(100)
             f.close()
         elif  app_config['mode'] == 'MQTT':
-            c.publish(mqtt_config['topic'], buf)
+            mqtt_client.publish(mqtt_config['topic'], buf)
 
         print(f'Saved photo {time_str}: {buf[:20]}')
 
@@ -85,6 +83,7 @@ while loop:
         time.sleep_ms(app_config['sleep-ms'])
 
     except KeyboardInterrupt:
+        mqtt_client.stop()
         print("debugging stopped")
         loop = False
 
