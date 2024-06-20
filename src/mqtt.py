@@ -1,6 +1,7 @@
 import ubinascii
 import machine
-from umqtt.simple2 import MQTTClient import config
+from umqtt.simple2 import MQTTClient
+from config import *
 
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
 MQTT_BROKER_SERVER = mqtt_config['server']
@@ -39,7 +40,8 @@ class Mqtt:
                         )
                 self._client.connect()
             else:
-                # TODO: Reconnect here
+                print(f"Reboot because of error of setting up MQTT client")
+                machine.reset()
             return True, {}
         except Exception as err:
             print(f"Error connecting device to message broker: {err}")
@@ -64,4 +66,4 @@ class Mqtt:
     def publish(self, topic: str, message: str) -> None:
         if self._client is not None:
             self._client.publish(topic, message)
-            print(f"Published message - {message[:20]")
+            print(f"Published message - {self._client_id}, {topic}, {message[:20]}")

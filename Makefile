@@ -16,7 +16,7 @@ setup: ## Erase flash and then upload the micropython binary
 upload: ## Access the serial monitor with rshell
 	@ls /dev/tty.*
 	@echo "Ensure you plug in the board into the UART port"
-	pipenv run rshell cp $(PYTHON_FILE) /pyboard/
+	pipenv run rshell cp -r $(PYTHON_FILE) /pyboard/
 
 rollback:
 	@ls /dev/tty.*
