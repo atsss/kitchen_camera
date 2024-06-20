@@ -90,5 +90,6 @@ while loop:
     except Exception as e:
         print("Error ocurred: " + str(e))
         error_counter = error_counter + 1
+        time.sleep_ms(500)
         if error_counter > app_config['max-error']:
             machine.reset()

@@ -31,12 +31,16 @@ class Mqtt:
     def _connect(self):
         try:
             if self._client is None:
+                ssl_params = { 'server_hostname': self._server }
                 self._client = MQTTClient(
                         self._client_id,
                         self._server,
                         port=self._port,
                         user=self._username,
-                        password=self._password
+                        password=self._password,
+                        keepalive=3600,
+                        ssl=True,
+                        ssl_params=ssl_params
                         )
                 self._client.connect()
             else:
@@ -65,5 +69,6 @@ class Mqtt:
 
     def publish(self, topic: str, message: str) -> None:
         if self._client is not None:
+            print(f"Will publish message - {self._client_id}, {topic}, {message[:20]}")
             self._client.publish(topic, message)
             print(f"Published message - {self._client_id}, {topic}, {message[:20]}")
