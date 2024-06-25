@@ -70,7 +70,8 @@ while loop:
             time.sleep_ms(100)
             f.close()
         elif  app_config['mode'] == 'MQTT':
-            mqtt_client.publish(mqtt_config['topic'], buf)
+            mqtt_client.publish(b'Test', b'Test')
+            mqtt_client.publish(mqtt_config['topic'], buf[:20])
 
         print(f'Saved photo {time_str}: {buf[:20]}')
 
