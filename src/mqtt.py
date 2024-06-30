@@ -8,6 +8,7 @@ MQTT_BROKER_SERVER = mqtt_config['server']
 MQTT_BROKER_PORT = mqtt_config['port']
 MQTT_BROKER_USERNAME = mqtt_config['username']
 MQTT_BROKER_PASSWORD = mqtt_config['password']
+MQTT_BROKER_SSL = mqtt_config['is_ssl']
 
 class Mqtt:
     def __init__(self,
@@ -16,6 +17,7 @@ class Mqtt:
                  username: str = MQTT_BROKER_USERNAME,
                  password: str = MQTT_BROKER_PASSWORD,
                  device_uuid: str = CLIENT_ID,
+                 is_ssl: bool = MQTT_BROKER_SSL,
                  ) -> None:
 
         # Connection
@@ -28,20 +30,33 @@ class Mqtt:
         self._client = None
         self._client_id: str = device_uuid
 
+        # SSL/TLS
+        self._is_ssl = is_ssl
+
     def _connect(self):
         try:
             if self._client is None:
-                ssl_params = { 'server_hostname': self._server }
-                self._client = MQTTClient(
-                        self._client_id,
-                        self._server,
-                        port=self._port,
-                        user=self._username,
-                        password=self._password,
-                        keepalive=3600,
-                        ssl=True,
-                        ssl_params=ssl_params
-                        )
+                if self._is_ssl:
+                    ssl_params = { 'server_hostname': self._server }
+                    self._client = MQTTClient(
+                            self._client_id,
+                            self._server,
+                            port=self._port,
+                            user=self._username,
+                            password=self._password,
+                            keepalive=3600,
+                            ssl=True,
+                            ssl_params=ssl_params
+                            )
+                else:
+                    self._client = MQTTClient(
+                            self._client_id,
+                            self._server,
+                            port=self._port,
+                            user=self._username,
+                            password=self._password,
+                            )
+
                 self._client.connect()
             else:
                 print(f"Reboot because of error of setting up MQTT client")
@@ -58,7 +73,7 @@ class Mqtt:
     def start(self) -> None:
         succ, resp = self._connect()
         if succ and self._client is not None:
-            print("Started App MQTT Client")
+            print(f"Started App MQTT Client with encrypted {self._is_ssl}")
         else:
             print(f"Can't start MQTT client - {resp['msg']}")
 
