@@ -1,97 +1,78 @@
-import uos
-import machine
-import gc
-import ntptime
-import time
+import esp
+import socket as soc
 import camera
-from config import *
-from slack import Slack
-from mqtt import Mqtt
+from time import sleep
 
-slack_client = Slack()
-mqtt_client = Mqtt()
+hdr = {
+  # live stream -
+  # URL: /live
+  'stream': """HTTP/1.1 200 OK
+Content-Type: multipart/x-mixed-replace; boundary=kaki5
+Connection: keep-alive
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Expires: Thu, Jan 01 1970 00:00:00 GMT
+Pragma: no-cache""",
+  # live stream -
+  # URL:
+  'frame': """--kaki5
+Content-Type: image/jpeg"""}
 
-try:
-    # camera init
-    led = machine.Pin(app_config['led'], machine.Pin.OUT)
+esp.osdebug(None)   # turn off debugging log. Uncomment to show debugging log
 
-    if app_config['camera'] == 'ESP32-CAM':
-        # camera.init(0, format=camera.JPEG, fb_location=camera.PSRAM)  # ESP32-CAM
-        camera.init()  # From https://wiki.seeedstudio.com/XIAO_ESP32S3_Micropython/
-    elif app_config['camera'] == 'M5CAMERA':
-        camera.init(0, d0=32, d1=35, d2=34, d3=5, d4=39, d5=18, d6=36, d7=19,
-                    href=26, vsync=25, reset=15, sioc=23, siod=22, xclk=27, pclk=21, fb_location=camera.PSRAM)   #M5CAMERA
+UID = const('xiao')          # authentication user
+PWD = const('Hi-Xiao-Ling')  # authentication password
 
-    if app_config['mode'] == 'microSD':
-        # sd mount
-        sd = machine.SDCard(slot=3, width=1,
-                            sck=machine.Pin(microsd_config['sck']),
-                            mosi=machine.Pin(microsd_config['mosi']),
-                            miso=machine.Pin(microsd_config['miso']),
-                            cs=machine.Pin(microsd_config['ss']))
-        uos.mount(sd, '/sd')
-        #uos.listdir('/')
-    elif app_config['mode'] == 'MQTT':
-        mqtt_client.start()
+cam = camera.init() # Camera
+print("Camera ready?: ", cam)
 
-    # ntp sync for date
-    ntptime.settime()
-    rtc = machine.RTC()
+con = True # FIXME
 
-except Exception as e:
-    print("Error ocurred: " + str(e))
-    time.sleep_ms(5000)
-    machine.reset()
+if con and cam: # WiFi and camera are ready
+   if cam:
+     # set preffered camera setting
+     camera.framesize(10)     # frame size 800X600 (1.33 espect ratio)
+     camera.contrast(2)       # increase contrast
+     camera.speffect(2)       # jpeg grayscale
+   if con:
+     # TCP server
+     port = 80
+     addr = soc.getaddrinfo('0.0.0.0', port)[0][-1]
+     s = soc.socket(soc.AF_INET, soc.SOCK_STREAM)
+     s.setsockopt(soc.SOL_SOCKET, soc.SO_REUSEADDR, 1)
+     s.bind(addr)
+     s.listen(1)
+     # s.settimeout(5.0)
+     while True:
+        cs, ca = s.accept()   # wait for client connect
+        print('Request from:', ca)
+        w = cs.recv(200) # blocking
+        (_, uid, pwd) = w.decode().split('\r\n')[0].split()[1].split('/')
+        # print(_, uid, pwd)
+        if not (uid==UID and pwd==PWD):
+           print('Not authenticated')
+           cs.close()
+           continue
+        # We are authenticated, so continue serving
+        cs.write(b'%s\r\n\r\n' % hdr['stream'])
+        pic=camera.capture
+        put=cs.write
+        hr=hdr['frame']
+        while True:
+           # once connected and authenticated just send the jpg data
+           # client use HTTP protocol (not RTSP)
+           try:
+              put(b'%s\r\n\r\n' % hr)
+              put(pic())
+              put(b'\r\n')  # send and flush the send buffer
+           except Exception as e:
+              print('TCP send error', e)
+              cs.close()
+              break
+else:
+   if not con:
+      print("WiFi not connected.")
+   if not cam:
+      print("Camera not ready.")
+   print("System not ready. Please restart")
 
-error_counter = 0
-loop = True
-while loop:
-    try:
-        print("Initial free memory:", gc.mem_free())
-        print("Initial allocated memory:", gc.mem_alloc())
-
-        # prepare for photo
-        led.value(1)
-        led.value(0)
-
-        # take photo
-        buf = camera.capture()
-        # save photo
-        timestamp = rtc.datetime()
-        time_str = '%4d%02d%02d%02d%02d%02d' %(timestamp[0], timestamp[1], timestamp[2], timestamp[4], timestamp[5], timestamp[6])
-
-        print(f'Took photo {time_str}: {buf[:20]}')
-        print("After allocation free memory:", gc.mem_free())
-        print("After allocation allocated memory:", gc.mem_alloc())
-
-        if app_config['mode'] == 'microSD':
-            f = open('sd/'+time_str+'.jpg', 'w')
-            f.write(buf)
-            time.sleep_ms(100)
-            f.close()
-        elif  app_config['mode'] == 'MQTT':
-            print('buffer length:', len(buf))
-            # mqtt_client.publish(b'Test', b'Test')
-            mqtt_client.publish(mqtt_config['topic'], buf)
-
-        print(f'Saved photo {time_str}: {buf[:20]}')
-
-        del buf
-        gc.collect()
-        print("After gc.collect() free memory:", gc.mem_free())
-        print("After gc.collect() allocated memory:", gc.mem_alloc())
-
-        # sleep
-        time.sleep_ms(app_config['sleep-ms'])
-
-    except KeyboardInterrupt:
-        mqtt_client.stop()
-        print("debugging stopped")
-        loop = False
-
-    except Exception as e:
-        print("Error ocurred: " + str(e))
-        error_counter = error_counter + 1
-        time.sleep_ms(500)
-        if error_counter > app_config['max-error']:
-            machine.reset()
+print('System aborted')
